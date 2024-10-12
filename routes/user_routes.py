@@ -13,7 +13,7 @@ def register_user():
     """
         Registering of users
     """
-    
+
     data = request.get_json()
     username = data.get('username')
     email = data.get('email')

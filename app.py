@@ -5,9 +5,9 @@ import os
 from flask import Flask
 from flask_migrate import Migrate
 from flask_cors import CORS
-from extension import db
-from routes.user_routes import user_routes
 from dotenv import load_dotenv
+from routes.user_routes import user_routes
+from extension import db
 
 load_dotenv()
 
