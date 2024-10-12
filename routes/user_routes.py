@@ -1,0 +1,45 @@
+"""
+ Importing Packages
+"""
+from flask import Blueprint, request, jsonify
+from werkzeug.security import generate_password_hash
+from models import db, User
+
+user_routes = Blueprint('user_routes', __name__)
+
+
+@user_routes.route('/register', methods=['POST'])
+def register_user():
+    """
+        Registering of users
+    """
+    
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not username or not email or not password:
+        return jsonify({'Error': "All fields are required"}), 400
+
+    user_exists = User.query.filter_by(username=username).first()
+    if user_exists:
+        return jsonify({'Error': 'User already exists'}), 400
+
+    hashed_password = generate_password_hash(password)
+    try:
+        new_user = User(username=username, email=email,
+                        password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({'message': 'User registered successfully'}), 201
+    except Exception as e:
+        return jsonify({'Error': f'Failed to register user: {str(e)}'}), 500
+
+
+@user_routes.route('/')
+def home():
+    """
+        Home Page (for development/testing purposes)
+    """
+    return "Hello World!"
