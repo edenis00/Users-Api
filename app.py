@@ -2,6 +2,7 @@
     Importing Packages
 """
 import os
+import logging
 from flask import Flask
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -11,6 +12,7 @@ from extension import db
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
