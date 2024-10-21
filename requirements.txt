@@ -1,5 +1,4 @@
 alembic==1.13.3
-apturl==0.5.2
 asgiref==3.8.1
 asttokens==2.4.1
 attrs==23.2.0
