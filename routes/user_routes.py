@@ -119,11 +119,11 @@ def request_reset():
     reset_url = url_for("user_routes.password_reset", token=reset_token, _external = True)
     response = send_reset_email(email, reset_url)
     logging.info("Mailgun response %s", response.text)
-    logging.info("Reset url sent: %s", reset_url)
+    # logging.info("Reset url sent: %s", reset_url)
     # if response.status_code == 200:
     logging.info("password reset link %s", reset_url)
-    return jsonify({'message': 'If this email is registered, you will receive a reset link soon.'}), 200
-
+    return jsonify({'message': f'Click this link to reset Password {reset_url}'}), 200
+    # return jsonify({'message': f'If this email is registered, you will receive a reset link soon. Password link {reset_url}'}), 200
     # return jsonify({'Error': 'Failed to send request to email'}), 500
 
 
