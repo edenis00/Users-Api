@@ -12,11 +12,14 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from routes.user_routes import user_routes
 from extension import db
+from routes.user_routes import user_routes
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
+app.register_blueprint(user_routes, url_prefix='/users')
+
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -46,6 +49,4 @@ migrate = Migrate(app, db)
 
 
 if __name__ == '__main__':
-    from routes.user_routes import user_routes
-    app.register_blueprint(user_routes, url_prefix='/users')
     app.run(debug=os.getenv('FLASK_ENV') == 'development')
