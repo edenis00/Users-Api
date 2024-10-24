@@ -2,9 +2,11 @@
  Importing Packages
 """
 import os
+import smtplib
+from email.mime.text import MIMEText
+from datetime import datetime, timedelta
+from firebase_admin import auth
 import logging
-import datetime
-import requests
 import jwt
 from flask import Blueprint, request, jsonify, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,27 +14,51 @@ from dotenv import load_dotenv
 from models import db, User
 
 load_dotenv()
-MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY')
-MAILGUN_DOMAIN = os.getenv('MAILGUN_DOMAIN')
-MAILGUN_SENDER_EMAIL = os.getenv('MAILGUN_SENDER_EMAIL, noreply@example.com')
 SECRET_KEY = os.getenv('SECRET_KEY')
 user_routes = Blueprint('user_routes', __name__)
 
+def send_email_verification(email, verification_link):
+    """
+        Sending email verification
+    """
+    try:
+        send_email(email, "Email Verification", f"Thanks for creating an account."
+                   f" Click this below to verify your email address and sign in to your account.\n\n {verification_link}")
+        logging.info("Email verification link sent to %s", email)
+    except Exception as e:
+        logging.error('Failed to send email verification %s', e)
 
 def send_reset_email(email, reset_link):
     """
         Sending email reset
     """
-    return requests.post(
-        f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages",
-            auth=("api", MAILGUN_API_KEY),
-            data={"from": f"Excited User <{MAILGUN_SENDER_EMAIL}>",
-              "to": [email, f"YOU@{MAILGUN_DOMAIN}"],
-              "subject": "Password Reset Request",
-              "text": f"To reset your password, Click the following link: {reset_link}\n\n If you didnt request this, please ignore this email"},
-        timeout=3
-    )
+    try:
+        send_email(email, "Password Reset", f"If you requested a password reset. \n\n"
+                  f"Click this link to reset your password: {reset_link} \n\n If you didn't make this request, ignore this email.")
+        logging.info("Password reset email sent to %s", email)
+    except Exception as e:
+        logging.error('Failed to send message %s', e)
 
+def send_email(to, subject, body):
+    """
+        Sending mails logic
+    """
+    from_email = os.getenv('MAIL_USERNAME')
+    password = os.getenv('MAIL_PASSWORD')
+        
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = from_email
+    msg['To'] = to
+    
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(from_email, password)
+            server.send_message(msg)
+        logging.info('Email sent successfully')
+    except Exception as e:
+        logging.error("Failed to send email %s", e)
 
 @user_routes.route('/register', methods=['POST'])
 def register_user():
@@ -59,7 +85,14 @@ def register_user():
                         password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
-        return jsonify({'message': 'User registered successfully'}), 201
+        
+        # Send email verificaiton using firebase
+        user = auth.create_user(email=email, password=password, email_verified=False)
+        verification_link = auth.generate_email_verification_link(email)
+        
+        # Send the verification link to the user
+        send_email_verification(email, verification_link)
+        return jsonify({'message': 'User registered successfully. Please verify yoour email.'}), 201
     except Exception as e:
         logging.error('An Error occured due to: %s', e)
         return jsonify({'Error': 'An Error occured. Please try again'}), 500
@@ -98,7 +131,7 @@ def home():
 @user_routes.route('/request_reset', methods=['POST'])
 def request_reset():
     """
-        Request reset for password using (mailgun)
+        Request reset for password using
     """
 
     data = request.get_json()
@@ -112,19 +145,18 @@ def request_reset():
         return jsonify({'Error': 'User does not exists'}), 400
 
     reset_token = jwt.encode({
-        "user_id": user.id,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-        }, SECRET_KEY, algorithm="HS256")
-
-    reset_url = url_for("user_routes.password_reset", token=reset_token, _external = True)
-    response = send_reset_email(email, reset_url)
-    logging.info("Mailgun response %s", response.text)
-    # logging.info("Reset url sent: %s", reset_url)
-    # if response.status_code == 200:
-    logging.info("password reset link %s", reset_url)
-    return jsonify({'message': f'Click this link to reset Password {reset_url}'}), 200
-    # return jsonify({'message': f'If this email is registered, you will receive a reset link soon. Password link {reset_url}'}), 200
-    # return jsonify({'Error': 'Failed to send request to email'}), 500
+        'user_id': user.id,
+        'exp': datetime.utcnow() + timedelta(minutes=15)
+    }, SECRET_KEY, algorithm='HS256')
+    
+    try:
+        reset_link = url_for("user_routes.password_reset", token=reset_token, _external=True)
+        # logging.info('Reset link: %s', reset_link)
+        send_reset_email(email, reset_link)
+        return jsonify({'message': "If this email is registered, you will receive a reset link soon." }), 200
+    except Exception as e:
+        logging.error('Error sending password reset email: %s', e)
+        return jsonify({"Error": "Failed to send password reset email. Please try again"}), 500
 
 
 @user_routes.route('/password_reset/<token>', methods=['POST'])

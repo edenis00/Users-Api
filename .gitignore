@@ -14,3 +14,6 @@ env/
 *.db
 *.sqlite3
 
+#important files
+firebase_credentials.json
+.env
